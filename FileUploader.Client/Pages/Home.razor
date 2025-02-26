@@ -1,0 +1,67 @@
+﻿@page "/"
+@using FileUploader.Common.Communication
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<PageTitle>Files</PageTitle>
+
+<FileUploader.Client.Shared.UploadInput OnNewFile="RefreshFiles"></FileUploader.Client.Shared.UploadInput>
+
+<br />
+<h1>All public Files:</h1>
+
+
+@if (files == null)
+{
+    <p>Loading files...</p>
+}
+else if (files.Count == 0)
+{
+    <p>No files available.</p>
+}
+else
+{
+    <ul class="file-list">
+        @foreach (var file in files)
+        {
+            <li class="file-item">
+                <div class="file-info">
+                    <span class="file-name">@file.FileName</span>
+                    <span class="file-size">(@file.Size bytes)</span>
+                    <span class="file-extension">.@file.Extension</span>
+                </div>
+                <button class="download-btn" @onclick="() => DownloadFile(file.RelativePath)">Download</button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<UploadResult> files;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshFiles();
+    }
+
+    private async Task RefreshFiles()
+    {
+        files = await Http.GetFromJsonAsync<List<UploadResult>>("/files/publicFiles");
+    }
+
+    private async Task DownloadFile(string relativePath)
+    {
+        var response = await Http.GetAsync($"/api/File/{relativePath}");
+
+        if (!response.IsSuccessStatusCode)
+        {
+            await JS.InvokeVoidAsync("alert", "File not found.");
+        }
+        else
+        {
+            var fileStream = response.Content.ReadAsStream();
+            using var streamRef = new DotNetStreamReference(stream: fileStream);
+            // await JS.InvokeVoidAsync("downloadFileFromStream", originalFileName, streamRef);
+        }
+    }
+}

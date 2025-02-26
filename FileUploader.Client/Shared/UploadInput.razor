@@ -1,0 +1,48 @@
+﻿@using FileUploader.Common.Communication
+@using System.Net.Http.Headers
+@inject HttpClient Http
+
+<PageTitle>Upload Files</PageTitle>
+
+<h2>Upload Files!</h2>
+
+<InputFile OnChange="@OnInputFileChange" multiple />
+
+
+@code {
+    [Parameter]
+    public EventCallback OnNewFile { get; set; }
+
+    private int maxAllowedFiles = int.MaxValue;
+    private long maxFileSize = long.MaxValue;
+    private List<string> fileNames = new();
+    private List<UploadResult> uploadResults = new();
+
+    private async Task OnInputFileChange(InputFileChangeEventArgs e)
+    {
+        using var content = new MultipartFormDataContent();
+
+        foreach (var file in e.GetMultipleFiles(maxAllowedFiles))
+        {
+            var fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+
+            fileNames.Add(file.Name);
+
+            content.Add(
+                content: fileContent,
+                name: "\"filesList\"",
+                fileName: file.Name);
+        }
+
+        HttpResponseMessage response = await Http.PostAsync("/files/addFiles", content);
+
+        var newUploadResults = await response.Content.ReadFromJsonAsync<List<UploadResult>>();
+
+        if (newUploadResults != null)
+        {
+            uploadResults = uploadResults.Concat(newUploadResults).ToList();
+            await OnNewFile.InvokeAsync();
+        }
+    }
+}
