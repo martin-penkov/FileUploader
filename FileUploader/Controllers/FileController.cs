@@ -1,3 +1,4 @@
+using FileUploader.Common;
 using FileUploader.Common.Communication;
 using FileUploader.Db;
 using FileUploader.Db.Entities;
@@ -54,10 +55,15 @@ namespace FileUploader.Controllers
 
             foreach (IFormFile fileData in filesList)
             {
+                if(await m_context.FileAssets.AnyAsync(fa => fa.FullName == fileData.FileName))
+                {
+                    return BadRequest(ErrorMessage.FileWithSameNameExists);
+                }
+
                 UploadResult result = await m_fileService.UploadAsync(fileData.FileName, fileData);
                 if (!result.Uploaded)
                 {
-                    return BadRequest("Upload image failed");
+                    return BadRequest(ErrorMessage.ErrorDuringFileUpload);
                 }
 
                 EFileAsset fileAsset = new EFileAsset
@@ -80,23 +86,54 @@ namespace FileUploader.Controllers
         }
 
         [AllowAnonymous]
-        [HttpGet("download")]
-        public IActionResult DownloadFile([FromQuery] string filePath)
+        [HttpDelete("delete")]
+        public async Task<ActionResult> Delete([FromQuery] string fileName)
         {
-            string absolutePath = Path.Combine(m_hostEnvironment.WebRootPath, filePath);
+            EFileAsset? fileAsset = m_context.FileAssets.FirstOrDefault(fa => fa.Name == fileName);
+
+            if (fileAsset == null)
+            {
+                return NotFound(ErrorMessage.FileNotFound);
+            }
+
+            bool doesPhysicalFileExist = m_fileService.DoesFileExist(fileAsset.Location);
+
+            if (!doesPhysicalFileExist)
+            {
+                return NotFound(ErrorMessage.PhysicalFileNotFound);
+            }
+
+            m_context.FileAssets.Remove(fileAsset);
+            await m_context.SaveChangesAsync();
+
+            m_fileService.Delete(fileAsset.Location);
+
+            return Ok();
+        }
+
+        [AllowAnonymous]
+        [HttpGet("download")]
+        public async Task<ActionResult> DownloadFile([FromQuery] string fileName)
+        {
+            EFileAsset? fileAsset = m_context.FileAssets.FirstOrDefault(fa => fa.Name == fileName);
+
+            if (fileAsset == null)
+            {
+                return NotFound(ErrorMessage.FileNotFound);
+            }
+
+            string absolutePath = Path.Combine(m_hostEnvironment.WebRootPath, fileAsset.Location);
 
             if (!System.IO.File.Exists(absolutePath))
             {
-                return NotFound("File not found.");
+                return NotFound(ErrorMessage.PhysicalFileNotFound);
             }
 
-            // Get MIME type
+            // MIME type
             string contentType = "application/octet-stream";
-            string fileName = Path.GetFileName(absolutePath);
 
-            // Return the file
             byte[] fileBytes = System.IO.File.ReadAllBytes(absolutePath);
-            return File(fileBytes, contentType, fileName);
+            return File(fileBytes, contentType, fileAsset.FullName);
         }
     }
 }

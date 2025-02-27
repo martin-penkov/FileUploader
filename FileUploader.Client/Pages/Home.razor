@@ -1,43 +1,65 @@
 ﻿@page "/"
+@using FileUploader.Client.Services
 @using FileUploader.Common.Communication
 @inject HttpClient Http
 @inject IJSRuntime JS
+@inject IAlertService AlertService
 
 <PageTitle>Files</PageTitle>
 
-<FileUploader.Client.Shared.UploadInput OnNewFile="RefreshFiles"></FileUploader.Client.Shared.UploadInput>
+<div class="p-3 top-row navbar navbar-dark bg-dark">
+    <FileUploader.Client.Shared.UploadInput OnNewFile="RefreshFiles"></FileUploader.Client.Shared.UploadInput>
+</div>
 
-<br />
-<h1>All public Files:</h1>
 
+<section class="content px-5">
+    <h1>All public Files:</h1>
 
-@if (files == null)
-{
-    <p>Loading files...</p>
-}
-else if (files.Count == 0)
-{
-    <p>No files available.</p>
-}
-else
-{
-    <ul class="file-list">
-        @foreach (var file in files)
-        {
-            <li class="file-item">
-                <div class="file-info">
-                    <span class="file-name">@file.FileName</span>
-                    <span class="file-size">(@file.Size bytes)</span>
-                    <span class="file-extension">.@file.Extension</span>
-                </div>
-                <button class="download-btn" @onclick="() => DownloadFile(file.RelativePath)">Download</button>
-            </li>
-        }
-    </ul>
-}
+    @if (files == null)
+    {
+        <p>Loading files...</p>
+    }
+    else if (files.Count == 0)
+    {
+        <p>No files available.</p>
+    }
+    else
+    {
+        <ul class="file-list">
+            @foreach (var file in files)
+            {
+                <li class="file-item">
+                    <div class="file-info">
+                        <span class="file-name">@file.FileName</span>
+                        <span class="file-size">(@file.Size bytes)</span>
+                        <span class="file-extension">.@file.Extension</span>
+                    </div>
+                    <div class="button-container">
+                        <button class="delete-btn" @onclick="() => ShowDeleteModal(file.FileName)">Delete</button>
+                        <button class="download-btn" @onclick="() => DownloadFile(file.FileName)">Download</button>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+
+    @if (showDeleteModal)
+    {
+        <div class="modal-overlay" @onclick="HideDeleteModal">
+            <div class="modal" @onclick:stopPropagation="true">
+                <h3>Are you sure you want to delete this file?</h3>
+                <p>@fileToDelete</p>
+                <button class="confirm-btn" @onclick="() => DeleteFile(fileToDelete)">Yes, Delete</button>
+                <button class="cancel-btn" @onclick="HideDeleteModal">Cancel</button>
+            </div>
+        </div>
+    }
+</section>
 
 @code {
     private List<UploadResult> files;
+    private bool showDeleteModal = false;
+    private string fileToDelete;
 
     protected override async Task OnInitializedAsync()
     {
@@ -49,22 +71,54 @@ else
         files = await Http.GetFromJsonAsync<List<UploadResult>>("/files/publicFiles");
     }
 
-    private async Task DownloadFile(string relativePath)
+    private async Task DownloadFile(string fileName)
     {
-        string apiUrl = $"/files/download?filePath={relativePath}";
+        string apiUrl = $"/files/download?fileName={fileName}";
 
         HttpResponseMessage response = await Http.GetAsync(apiUrl);
 
         if (response.IsSuccessStatusCode)
         {
             byte[] fileBytes = await response.Content.ReadAsByteArrayAsync();
-            string fileName = response.Content.Headers.ContentDisposition?.FileName;
+            string fullFileName = response.Content.Headers.ContentDisposition?.FileNameStar;
 
-            await JS.InvokeVoidAsync("downloadMyFile", fileBytes, fileName);
+            await JS.InvokeVoidAsync("downloadMyFile", fileBytes, fullFileName);
         }
         else
         {
-            Console.WriteLine($"Failed to download file: {response.StatusCode}");   //TODO handle file not found
+            AlertService.ShowAlert(await response.Content.ReadAsStringAsync());
+            Console.WriteLine($"Failed to download file: {response.StatusCode}");
         }
+    }
+
+    private async Task DeleteFile(string fileName)
+    {
+        string apiUrl = $"/files/delete?fileName={fileName}";
+
+        HttpResponseMessage response = await Http.DeleteAsync(apiUrl);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await RefreshFiles();
+            HideDeleteModal();
+        }
+        else
+        {
+            HideDeleteModal();
+            AlertService.ShowAlert(await response.Content.ReadAsStringAsync());
+            Console.WriteLine($"Failed to delete file: {response.StatusCode}");
+        }
+    }
+
+    private void ShowDeleteModal(string fileName)
+    {
+        fileToDelete = fileName;
+        showDeleteModal = true;
+    }
+
+    private void HideDeleteModal()
+    {
+        showDeleteModal = false;
+        fileToDelete = null;
     }
 }

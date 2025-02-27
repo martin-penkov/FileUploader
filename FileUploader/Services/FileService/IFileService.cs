@@ -6,6 +6,7 @@ namespace FileUploader.Services.FileService
     {
         Task<UploadResult> UploadAsync(string name, IFormFile file);
 
-        void Delete(string relativePath);
+        bool Delete(string relativePath);
+        bool DoesFileExist(string location);
     }
 }

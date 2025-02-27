@@ -5,12 +5,17 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
-        <article class="content px-4">
-            @Body
-        </article>
+        <ErrorBoundary Context="Exception">
+            <ChildContent>
+                <FileUploader.Client.Shared.Alert></FileUploader.Client.Shared.Alert>
+                @Body
+            </ChildContent>
+            <ErrorContent>
+                <div class="alert bg-danger text-white alert-dismissible">
+                    @Exception.GetType(): @Exception.Message
+                    <button class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            </ErrorContent>
+        </ErrorBoundary>
     </main>
 </div>

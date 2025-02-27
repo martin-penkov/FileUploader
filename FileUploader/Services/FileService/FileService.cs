@@ -54,9 +54,23 @@ namespace FileUploader.Services.FileService
             }
         }
 
-        public void Delete(string relativePath)
+        public bool Delete(string relativePath)
         {
-            throw new NotImplementedException();
+            string physicalPath = MapToPhysical(relativePath);
+
+            if (File.Exists(physicalPath))
+            {
+                File.Delete(physicalPath);
+                return true;
+            }
+            return false;
+        }
+
+        public bool DoesFileExist(string relativePath)
+        {
+            string physicalPath = MapToPhysical(relativePath);
+
+            return File.Exists(physicalPath);
         }
 
         FileDescription PrepareFile(string srcFileName)

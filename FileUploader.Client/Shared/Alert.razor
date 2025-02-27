@@ -1,0 +1,31 @@
+﻿@using FileUploader.Client.Services
+@inject IAlertService AlertService
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="alert alert-danger alert-dismissible global-alert" role="alert">
+        @Message
+        <button type="button" class="btn-close" aria-label="Close" @onclick="Dismiss"></button>
+    </div>
+}
+
+@code {
+    private string Message;
+
+    protected override void OnInitialized()
+    {
+        AlertService.OnShow += ShowAlert;
+    }
+
+    private void ShowAlert(string message)
+    {
+        Message = message;
+        StateHasChanged();
+    }
+
+    private void Dismiss()
+    {
+        Message = null;
+        StateHasChanged();
+    }
+}

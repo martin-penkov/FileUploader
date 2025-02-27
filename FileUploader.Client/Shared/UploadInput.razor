@@ -1,13 +1,15 @@
-﻿@using FileUploader.Common.Communication
+﻿@using FileUploader.Client.Services
+@using FileUploader.Common.Communication
 @using System.Net.Http.Headers
 @inject HttpClient Http
+@inject IAlertService AlertService
 
 <PageTitle>Upload Files</PageTitle>
 
-<h2>Upload Files!</h2>
-
-<InputFile OnChange="@OnInputFileChange" multiple />
-
+<label for="inputFile" class="btn btn-secondary me-5 input-btn">
+    <InputFile id="inputFile" OnChange="@OnInputFileChange" multiple class="d-none" />
+    Upload Files
+</label>
 
 @code {
     [Parameter]
@@ -37,7 +39,14 @@
 
         HttpResponseMessage response = await Http.PostAsync("/files/addFiles", content);
 
-        var newUploadResults = await response.Content.ReadFromJsonAsync<List<UploadResult>>();
+        if (!response.IsSuccessStatusCode)
+        {
+            AlertService.ShowAlert(await response.Content.ReadAsStringAsync());
+            Console.WriteLine("File upload fail! " + response.ReasonPhrase);
+            return;
+        }
+
+        List<UploadResult> newUploadResults = await response.Content.ReadFromJsonAsync<List<UploadResult>>();
 
         if (newUploadResults != null)
         {

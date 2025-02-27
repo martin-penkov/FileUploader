@@ -123,15 +123,100 @@ code {
     gap: 10px;
 }
 
-.download-btn {
-    padding: 5px 10px;
-    background-color: #007bff;
-    color: #fff;
+.button-container {
+    display: flex; /* Use flexbox for horizontal layout */
+    justify-content: flex-start; /* Align buttons to the left */
+    gap: 10px; /* Space between buttons */
+}
+
+.download-btn,
+.delete-btn {
+    padding: 10px 20px;
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    flex: 1;
+    text-align: center;
 }
 
-.download-btn:hover {
-    background-color: #0056b3;
+.download-btn {
+    background-color: royalblue;
+    color: #fff;
+}
+
+    .download-btn:hover {
+        background-color: darkblue;
+    }
+
+.delete-btn {
+    background-color: red;
+    color: white;
+}
+
+    .delete-btn:hover {
+        background-color: darkred;
+    }
+
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center; 
+    z-index: 1000;
+}
+
+/* Modal Window */
+.modal {
+    position: relative;
+    display: block;
+    align-content: center;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 40%;
+    height: 40%;
+    text-align: center;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Modal Buttons */
+button {
+    padding: 10px 20px;
+    margin: 10px;
+    cursor: pointer;
+}
+
+.confirm-btn {
+    background-color: red;
+    color: white;
+}
+
+    .confirm-btn:hover {
+        background-color: darkred;
+    }
+
+.cancel-btn {
+    background-color: gray;
+    color: white;
+}
+
+    .cancel-btn:hover {
+        background-color: darkgray;
+    }
+
+.input-btn {
+    background-color: forestgreen;
+}
+
+.global-alert {
+    font-size: 1.5em;
+    border: none !important;
+    box-shadow: none !important;
+    margin-bottom: 0;
 }
