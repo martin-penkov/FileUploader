@@ -51,17 +51,20 @@ else
 
     private async Task DownloadFile(string relativePath)
     {
-        var response = await Http.GetAsync($"/api/File/{relativePath}");
+        string apiUrl = $"/files/download?filePath={relativePath}";
 
-        if (!response.IsSuccessStatusCode)
+        HttpResponseMessage response = await Http.GetAsync(apiUrl);
+
+        if (response.IsSuccessStatusCode)
         {
-            await JS.InvokeVoidAsync("alert", "File not found.");
+            byte[] fileBytes = await response.Content.ReadAsByteArrayAsync();
+            string fileName = response.Content.Headers.ContentDisposition?.FileName;
+
+            await JS.InvokeVoidAsync("downloadMyFile", fileBytes, fileName);
         }
         else
         {
-            var fileStream = response.Content.ReadAsStream();
-            using var streamRef = new DotNetStreamReference(stream: fileStream);
-            // await JS.InvokeVoidAsync("downloadFileFromStream", originalFileName, streamRef);
+            Console.WriteLine($"Failed to download file: {response.StatusCode}");   //TODO handle file not found
         }
     }
 }

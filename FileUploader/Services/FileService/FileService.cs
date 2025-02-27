@@ -89,8 +89,8 @@ namespace FileUploader.Services.FileService
             {
                 relativePath = relativePath.TrimStart('\\');
             }
-
-            return Path.Combine(m_hostEnvironment.ContentRootPath, relativePath);
+            
+            return Path.Combine(m_hostEnvironment.WebRootPath, relativePath);
         }
 
         void CreateDirectoryIfDoesntExist(string directory)

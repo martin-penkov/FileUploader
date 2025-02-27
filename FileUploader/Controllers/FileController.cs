@@ -1,4 +1,3 @@
-using Azure.Core;
 using FileUploader.Common.Communication;
 using FileUploader.Db;
 using FileUploader.Db.Entities;
@@ -20,14 +19,16 @@ namespace FileUploader.Controllers
         private readonly ILogger<FileController> m_logger;
         private readonly IFileService m_fileService;
         private readonly AppDbContext m_context;
+        IWebHostEnvironment m_hostEnvironment;
 
         #endregion
 
-        public FileController(ILogger<FileController> logger, IFileService fileService, AppDbContext context)
+        public FileController(ILogger<FileController> logger, IFileService fileService, AppDbContext context, IWebHostEnvironment hostEnvironment)
         {
             m_logger = logger;
             m_fileService = fileService;
             m_context = context;
+            m_hostEnvironment = hostEnvironment;
         }
 
         [AllowAnonymous]
@@ -76,6 +77,26 @@ namespace FileUploader.Controllers
             }
 
             return Ok(results);
+        }
+
+        [AllowAnonymous]
+        [HttpGet("download")]
+        public IActionResult DownloadFile([FromQuery] string filePath)
+        {
+            string absolutePath = Path.Combine(m_hostEnvironment.WebRootPath, filePath);
+
+            if (!System.IO.File.Exists(absolutePath))
+            {
+                return NotFound("File not found.");
+            }
+
+            // Get MIME type
+            string contentType = "application/octet-stream";
+            string fileName = Path.GetFileName(absolutePath);
+
+            // Return the file
+            byte[] fileBytes = System.IO.File.ReadAllBytes(absolutePath);
+            return File(fileBytes, contentType, fileName);
         }
     }
 }
