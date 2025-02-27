@@ -36,13 +36,10 @@ bld/
 .vs/
 
 # Ignore everything inside wwwroot
-wwwroot/*
+wwwroot/
 
 # But keep the folder itself and any placeholder files
 !wwwroot/.gitkeep
-
-# Allow all folders, but keep ignoring their contents
-!wwwroot/**/
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/
