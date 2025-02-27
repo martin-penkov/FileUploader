@@ -43,6 +43,8 @@ namespace FileUploader
 
             builder.Services.AddTransient<IFileService, FileService>();
 
+            builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 1024 * 1024 * 1024);  // 1GB Limit
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.

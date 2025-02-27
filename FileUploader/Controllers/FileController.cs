@@ -48,6 +48,7 @@ namespace FileUploader.Controllers
         }
 
         [AllowAnonymous]
+        [RequestFormLimits(ValueLengthLimit = int.MaxValue, MultipartBodyLengthLimit = int.MaxValue)]
         [HttpPost("addFiles")]
         public async Task<ActionResult<IList<UploadResult>>> AddFiles([FromForm] List<IFormFile> filesList)
         {

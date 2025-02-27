@@ -31,7 +31,7 @@
                 <li class="file-item">
                     <div class="file-info">
                         <span class="file-name">@file.FileName</span>
-                        <span class="file-size">(@file.Size bytes)</span>
+                        <span class="file-size">(@BytesToMb(file.Size) MB)</span>
                         <span class="file-extension">.@file.Extension</span>
                     </div>
                     <div class="button-container">
@@ -120,5 +120,10 @@
     {
         showDeleteModal = false;
         fileToDelete = null;
+    }
+
+    private string BytesToMb(long sizeInBytes)
+    {
+        return (sizeInBytes / (1024m * 1024m)).ToString("0.000");
     }
 }
