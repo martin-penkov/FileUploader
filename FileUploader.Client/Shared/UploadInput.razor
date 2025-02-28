@@ -1,8 +1,10 @@
-﻿@using FileUploader.Client.Services
+﻿@using FileUploader.Client.Services.AlertService
+@using FileUploader.Client.Services.FileUploadService
 @using FileUploader.Common.Communication
 @using System.Net.Http.Headers
 @inject HttpClient Http
 @inject IAlertService AlertService
+@inject IFileUploadService FileUploadService
 
 <PageTitle>Upload Files</PageTitle>
 
@@ -17,8 +19,7 @@
 
     private int maxAllowedFiles = int.MaxValue;
     private long maxFileSize = long.MaxValue;
-    private List<string> fileNames = new();
-    private List<UploadResult> uploadResults = new();
+    private List<UploadResult> uploadResults = new List<UploadResult>();
 
     long chunkSize = 1000000;
 
@@ -36,123 +37,18 @@
         List<IBrowserFile> smallFiles = allFiles.Where(f => f.Size <= chunkSize).ToList();
         List<IBrowserFile> largeFiles = allFiles.Where(f => f.Size >= chunkSize).ToList();
 
-        using MultipartFormDataContent content = new MultipartFormDataContent();
-
-        foreach (IBrowserFile file in smallFiles)
-        {
-            StreamContent fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-
-            fileNames.Add(file.Name);
-
-            content.Add(
-                content: fileContent,
-                name: "\"filesList\"",
-                fileName: file.Name);
-        }
 
         if (smallFiles.Count > 0)
         {
-            await MakeApiRequestForSmallFiles(content);
+            HttpContent content = FileUploadService.CreateStreamContentForFiles(smallFiles, maxFileSize);
+            await FileUploadService.MakeApiRequestForSmallFiles(content);
         }
 
         foreach (IBrowserFile file in largeFiles)
         {
-            await UploadFileInChunks(file, chunkSize);
+            await FileUploadService.UploadFileInChunks(file, chunkSize);
         }
 
         await OnNewFile.InvokeAsync();
-    }
-
-    private async Task UploadFileInChunks(IBrowserFile file, long chunkSize = 1000000)
-    {
-        long TotalBytes = file.Size;
-        long numChunks = TotalBytes / chunkSize;
-        long remainder = TotalBytes % chunkSize;
-
-        long uploadedBytes = 0;
-
-        string nameOnly = Path.GetFileNameWithoutExtension(file.Name);
-        string extension = Path.GetExtension(file.Name);
-
-        bool firstChunk = true;
-        using (Stream stream = file.OpenReadStream(long.MaxValue))
-        {
-            for (int i = 0; i < numChunks; i++)
-            {
-                FileChunk chunk = await CreateFileChunk(file.Name, uploadedBytes, firstChunk, stream, chunkSize, false);
-                if(!await MakeApiChunkRangeRequest(chunk))
-                {
-                    return;
-                }
-
-                uploadedBytes += chunkSize;
-                firstChunk = false;
-            }
-
-            if (remainder > 0)
-            {
-                FileChunk chunk = await CreateFileChunk(file.Name, uploadedBytes, firstChunk, stream, remainder, true);
-                if (!await MakeApiChunkRangeRequest(chunk))
-                {
-                    return;
-                }
-
-                uploadedBytes += chunkSize;
-            }
-        }
-
-        Console.WriteLine("File uploaded successfully in chunks! Name: " + file.Name);
-    }
-
-    private async Task<FileChunk> CreateFileChunk(string fileName, long uploadedBytesProgress, bool isFirstChunk, Stream stream, long chunkSize, bool isLastChunk)
-    {
-        byte[] buffer = new byte[chunkSize];
-        await stream.ReadAsync(buffer, 0, buffer.Length);
-
-        FileChunk chunk = new FileChunk
-            {
-                Data = buffer,
-                FileName = fileName,
-                Offset = uploadedBytesProgress,
-                FirstChunk = isFirstChunk,
-                LastChunk = isLastChunk
-            };
-
-        return chunk;
-    }
-
-    private async Task<bool> MakeApiChunkRangeRequest(FileChunk fileChunk)
-    {
-        HttpResponseMessage response = await Http.PostAsJsonAsync("/files/addFileChunk", fileChunk);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            AlertService.ShowAlert(await response.Content.ReadAsStringAsync());
-            Console.WriteLine("File chunk upload fail! " + response.ReasonPhrase);
-            return false;
-        }
-
-        return true;
-    }
-
-    private async Task MakeApiRequestForSmallFiles(HttpContent content)
-    {
-        HttpResponseMessage response = await Http.PostAsync("/files/addFiles", content);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            AlertService.ShowAlert(await response.Content.ReadAsStringAsync());
-            Console.WriteLine("File upload fail! " + response.ReasonPhrase);
-            return;
-        }
-
-        List<UploadResult> newUploadResults = await response.Content.ReadFromJsonAsync<List<UploadResult>>();
-
-        if (newUploadResults != null)
-        {
-            uploadResults = uploadResults.Concat(newUploadResults).ToList();
-        }
-
     }
 }

@@ -1,4 +1,5 @@
-using FileUploader.Client.Services;
+using FileUploader.Client.Services.AlertService;
+using FileUploader.Client.Services.FileUploadService;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
@@ -13,7 +14,9 @@ namespace FileUploader.Client
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
             builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+            builder.Services.AddHttpClient();
             builder.Services.AddSingleton<IAlertService, AlertService>();
+            builder.Services.AddSingleton<IFileUploadService, FileUploadService>();
 
             await builder.Build().RunAsync();
         }

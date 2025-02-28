@@ -1,4 +1,4 @@
-﻿namespace FileUploader.Client.Services
+﻿namespace FileUploader.Client.Services.AlertService
 {
     public class AlertService : IAlertService
     {
