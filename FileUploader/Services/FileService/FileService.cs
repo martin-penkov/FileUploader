@@ -1,6 +1,10 @@
 ﻿using FileUploader.Caching;
+using FileUploader.Common;
 using FileUploader.Common.Communication;
 using FileUploader.Common.Types;
+using FileUploader.Db;
+using FileUploader.Db.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace FileUploader.Services.FileService
 {
@@ -9,12 +13,14 @@ namespace FileUploader.Services.FileService
         IWebHostEnvironment m_hostEnvironment;
         ILogger m_logger;
         private readonly IFileUploaderCache m_fileUploaderCache;
+        private readonly AppDbContext m_context;
 
-        public FileService(ILoggerFactory loggerFactory, IWebHostEnvironment hostEnvironment, IFileUploaderCache fileUploaderCache)
+        public FileService(ILoggerFactory loggerFactory, IWebHostEnvironment hostEnvironment, IFileUploaderCache fileUploaderCache, AppDbContext context)
         {
             m_logger = loggerFactory.CreateLogger("fileService");
             m_hostEnvironment = hostEnvironment;
             m_fileUploaderCache = fileUploaderCache;
+            m_context = context;
         }
 
         public async Task<UploadResult> UploadAsync(string name, IFormFile file)
@@ -22,6 +28,7 @@ namespace FileUploader.Services.FileService
             if (System.String.IsNullOrEmpty(name) || file == null)
             {
                 m_logger.LogInformation("Upload failed  - Empty file or name.");
+                return GenerateErrorResult(name);
             }
 
             try
@@ -48,16 +55,11 @@ namespace FileUploader.Services.FileService
             catch (Exception ex)
             {
                 m_logger.LogWarning(ex, "Error while uploading file: {file_name}", name);
-                return new UploadResult()
-                {
-                    Uploaded = false,
-                    FileName = name,
-                    Size = 0
-                };
+                return GenerateErrorResult(name);
             }
         }
 
-        public async Task<UploadResult> UploadChunkAsync(FileChunk fileChunk)
+        public UploadResult UploadChunkAsync(FileChunk fileChunk)
         {
             try
             {
@@ -65,12 +67,7 @@ namespace FileUploader.Services.FileService
 
                 if (resultFile == null)
                 {
-                    return new UploadResult()
-                    {
-                        Uploaded = false,
-                        FileName = fileChunk.FileName,
-                        Size = 0
-                    };
+                    return GenerateErrorResult(fileChunk.FileName);
                 }
 
                 long size = fileChunk.Data.Length;
@@ -89,11 +86,6 @@ namespace FileUploader.Services.FileService
                 resultFile.Size += size;
                 m_fileUploaderCache.AddOrUpdate(fileChunk.FileName, resultFile);
 
-                if (fileChunk.Offset > 1000000)
-                {
-                    throw new Exception() { };
-                }
-
                 return new UploadResult()
                 {
                     Uploaded = true,
@@ -106,13 +98,69 @@ namespace FileUploader.Services.FileService
             catch (Exception ex)
             {
                 m_logger.LogWarning(ex, "Error while writing file chunk: {file_name}", fileChunk.FileName);
-                return new UploadResult()
-                {
-                    Uploaded = false,
-                    FileName = fileChunk.FileName,
-                    Size = 0
-                };
+                return GenerateErrorResult(fileChunk.FileName);
             }
+        }
+
+        public async Task<bool> CreateDbEntryOnFirstChunkAsync(string fileName)
+        {
+            bool doesFileAlreadyExist = await m_context.FileAssets.AnyAsync(fa => fa.FullName == fileName);
+            if (doesFileAlreadyExist)
+            {
+                return false;
+            }
+
+            FileDescription fileDescr = PrepareFileDescription(fileName);
+
+            m_context.FileAssets.Add(new EFileAsset
+            {
+                FullName = fileName,
+                Name = fileDescr.NameWithoutExtension,
+                Location = fileDescr.RelativeLocation,
+                Extension = fileDescr.Extension,
+                UploadDate = DateTime.UtcNow,
+                Size = 0,
+                Status = Status.InProgress
+            });
+
+            await m_context.SaveChangesAsync();
+            m_fileUploaderCache.AddOrUpdate(fileName, fileDescr);
+
+            return true;
+        }
+
+        public async Task ClearStateAsync(string fileName)
+        {
+            m_fileUploaderCache.ClearEntry(fileName);
+
+            EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == fileName);
+            m_context.FileAssets.Remove(fileAsset!);
+            await m_context.SaveChangesAsync();
+
+            Delete(fileAsset!.Location);
+        }
+
+        public async Task<bool> FinalizeChunkedFileUploadAsync(string fileName)
+        {
+            EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == fileName);
+
+            if (fileAsset == null)
+            {
+                m_fileUploaderCache.ClearEntry(fileName);
+                Delete(fileAsset!.Location);
+
+                return false;
+            }
+
+            FileDescription fileDescr = m_fileUploaderCache.Get(fileName);
+
+            fileAsset.Status = Status.Complete;
+            fileAsset.Size = fileDescr.Size;
+
+            m_fileUploaderCache.ClearEntry(fileName);
+            await m_context.SaveChangesAsync();
+
+            return true;
         }
 
         public bool Delete(string relativePath)
@@ -179,6 +227,16 @@ namespace FileUploader.Services.FileService
             {
                 Directory.CreateDirectory(path);
             }
+        }
+
+        UploadResult GenerateErrorResult(string name)
+        {
+            return new UploadResult()
+            {
+                Uploaded = false,
+                FileName = name,
+                Size = 0
+            };
         }
     }
 }

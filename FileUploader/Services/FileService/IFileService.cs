@@ -7,12 +7,18 @@ namespace FileUploader.Services.FileService
     {
         Task<UploadResult> UploadAsync(string name, IFormFile file);
 
-        Task<UploadResult> UploadChunkAsync(FileChunk fileChunk);
+        UploadResult UploadChunkAsync(FileChunk fileChunk);
 
         bool Delete(string relativePath);
 
         bool DoesFileExist(string location);
 
         FileDescription PrepareFileDescription(string srcFileName);
+
+        Task<bool> CreateDbEntryOnFirstChunkAsync(string fileName);
+
+        Task ClearStateAsync(string fileName);
+
+        Task<bool> FinalizeChunkedFileUploadAsync(string fileName);
     }
 }

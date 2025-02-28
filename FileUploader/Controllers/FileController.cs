@@ -92,70 +92,37 @@ namespace FileUploader.Controllers
         [HttpPost("addFileChunk")]
         public async Task<ActionResult> AddFileChunk([FromBody] FileChunk fileChunk)
         {
-            
             try
             {
                 if (fileChunk.FirstChunk)
                 {
                     m_logger.LogInformation("Start Uploading file chunks for {FileName}", fileChunk.FileName);
 
-                    bool doesFileAlreadyExist = await m_context.FileAssets.AnyAsync(fa => fa.FullName == fileChunk.FileName);
-                    if (doesFileAlreadyExist)
+                    bool isInitialized = await m_fileService.CreateDbEntryOnFirstChunkAsync(fileChunk.FileName);
+
+                    if (!isInitialized)
                     {
                         return BadRequest(ErrorMessage.FileWithSameNameExists);
                     }
-
-                    FileDescription fileDescr = m_fileService.PrepareFileDescription(fileChunk.FileName);
-
-                    m_context.FileAssets.Add(new EFileAsset
-                    {
-                        FullName = fileChunk.FileName,
-                        Name = fileDescr.NameWithoutExtension,
-                        Location = fileDescr.RelativeLocation,
-                        Extension = fileDescr.Extension,
-                        UploadDate = DateTime.UtcNow,
-                        Size = 0,
-                        Status = Status.InProgress
-                    });
-
-                    await m_context.SaveChangesAsync();
-                    m_fileUploaderCache.AddOrUpdate(fileChunk.FileName, fileDescr);
                 }
 
-                UploadResult uploadResult = await m_fileService.UploadChunkAsync(fileChunk);
+                UploadResult uploadResult = m_fileService.UploadChunkAsync(fileChunk);
 
                 if (!uploadResult.Uploaded)
                 {
-                    m_fileUploaderCache.ClearEntry(fileChunk.FileName);
-
-                    EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == fileChunk.FileName);
-                    m_context.FileAssets.Remove(fileAsset!);
-                    await m_context.SaveChangesAsync();
-
-                    m_fileService.Delete(fileAsset!.Location);
+                    await m_fileService.ClearStateAsync(fileChunk.FileName);
 
                     return BadRequest(ErrorMessage.ErrorDuringFileUpload);
                 }
 
                 if (fileChunk.LastChunk)
                 {
-                    EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == fileChunk.FileName);
+                    bool isFinalized = await m_fileService.FinalizeChunkedFileUploadAsync(fileChunk.FileName);
 
-                    if (fileAsset == null)
+                    if (!isFinalized)
                     {
-                        m_fileUploaderCache.ClearEntry(fileChunk.FileName);
-                        m_fileService.Delete(fileAsset!.Location);
-
                         return BadRequest(ErrorMessage.ErrorDuringFileUpload);
                     }
-
-                    FileDescription fileDescr = m_fileUploaderCache.Get(fileChunk.FileName);
-
-                    fileAsset.Status = Status.Complete;
-                    fileAsset.Size = fileDescr.Size;
-
-                    m_fileUploaderCache.ClearEntry(fileChunk.FileName);
-                    await m_context.SaveChangesAsync();
                 }
 
                 m_logger.LogInformation("wrote chunk");
@@ -164,7 +131,7 @@ namespace FileUploader.Controllers
             }
             catch (Exception ex)
             {
-                m_fileUploaderCache.ClearEntry(fileChunk.FileName);
+                await m_fileService.ClearStateAsync(fileChunk.FileName);
                 return BadRequest(ErrorMessage.ErrorDuringFileUpload);
             }
         }
