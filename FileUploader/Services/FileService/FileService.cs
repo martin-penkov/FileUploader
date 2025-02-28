@@ -61,12 +61,23 @@ namespace FileUploader.Services.FileService
         {
             try
             {
-                FileDescription resultFile = m_fileUploaderCache.Get(fileChunk.FileName);
+                FileDescription? resultFile = m_fileUploaderCache.Get(fileChunk.FileName);
+
+                if (resultFile == null)
+                {
+                    return new UploadResult()
+                    {
+                        Uploaded = false,
+                        FileName = fileChunk.FileName,
+                        Size = 0
+                    };
+                }
+
                 long size = fileChunk.Data.Length;
 
                 if (fileChunk.FirstChunk && DoesFileExist(resultFile.RelativeLocation))
                 {
-                    Delete(resultFile.RelativeLocation);    //TODO check if there is one in db and retunr false if there is   (MAYBE DO THE CHECK IN THE CONTROLLER AND RETURN THERE IN THE BEGINNING)
+                    Delete(resultFile.RelativeLocation);   // IF here this means there is no entry in db for this file, so we should delete it...
                 }
 
                 using (Stream stream = File.OpenWrite(resultFile.PhysicalPath))
@@ -77,6 +88,11 @@ namespace FileUploader.Services.FileService
 
                 resultFile.Size += size;
                 m_fileUploaderCache.AddOrUpdate(fileChunk.FileName, resultFile);
+
+                if (fileChunk.Offset > 1000000)
+                {
+                    throw new Exception() { };
+                }
 
                 return new UploadResult()
                 {

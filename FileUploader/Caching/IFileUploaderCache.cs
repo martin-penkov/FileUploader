@@ -7,5 +7,7 @@ namespace FileUploader.Caching
         void AddOrUpdate(string originalName, FileDescription fileDescr);
 
         FileDescription Get(string originalName);
+
+        void ClearEntry(string originalName);
     }
 }

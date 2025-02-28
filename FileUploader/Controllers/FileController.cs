@@ -126,7 +126,14 @@ namespace FileUploader.Controllers
 
                 if (!uploadResult.Uploaded)
                 {
-                    // update cache entry and remove db entry
+                    m_fileUploaderCache.ClearEntry(fileChunk.FileName);
+
+                    EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == fileChunk.FileName);
+                    m_context.FileAssets.Remove(fileAsset!);
+                    await m_context.SaveChangesAsync();
+
+                    m_fileService.Delete(fileAsset!.Location);
+
                     return BadRequest(ErrorMessage.ErrorDuringFileUpload);
                 }
 
@@ -136,7 +143,9 @@ namespace FileUploader.Controllers
 
                     if (fileAsset == null)
                     {
-                        // reset state
+                        m_fileUploaderCache.ClearEntry(fileChunk.FileName);
+                        m_fileService.Delete(fileAsset!.Location);
+
                         return BadRequest(ErrorMessage.ErrorDuringFileUpload);
                     }
 
@@ -145,6 +154,7 @@ namespace FileUploader.Controllers
                     fileAsset.Status = Status.Complete;
                     fileAsset.Size = fileDescr.Size;
 
+                    m_fileUploaderCache.ClearEntry(fileChunk.FileName);
                     await m_context.SaveChangesAsync();
                 }
 
@@ -154,7 +164,7 @@ namespace FileUploader.Controllers
             }
             catch (Exception ex)
             {
-                //TODO handle if one chunk fails to clean up the files
+                m_fileUploaderCache.ClearEntry(fileChunk.FileName);
                 return BadRequest(ErrorMessage.ErrorDuringFileUpload);
             }
         }

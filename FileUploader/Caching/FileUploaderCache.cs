@@ -14,13 +14,24 @@ namespace FileUploader.Caching
             m_entries.AddOrUpdate(originalName, data, (key, current) => data);
         }
 
-        public FileDescription Get(string originalName)
+        public FileDescription? Get(string originalName)
         {
             FileUploadCacheEntry result;
 
             bool entry = m_entries.TryGetValue(originalName, out result);
 
+            if (!entry)
+            {
+                return null;
+            }
+
             return MapToFileDescription(result);
+        }
+
+        public void ClearEntry(string originalName)
+        {
+            FileUploadCacheEntry value;
+            m_entries.TryRemove(originalName, out value);
         }
 
         FileUploadCacheEntry Generate(FileDescription fileDescr)

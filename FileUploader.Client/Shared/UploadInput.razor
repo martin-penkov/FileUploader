@@ -59,7 +59,6 @@
         foreach (IBrowserFile file in largeFiles)
         {
             await UploadFileInChunks(file, chunkSize);
-            Console.WriteLine("File uploaded successfully in chunks! Name: " + file.Name);
         }
 
         await OnNewFile.InvokeAsync();
@@ -82,23 +81,28 @@
             for (int i = 0; i < numChunks; i++)
             {
                 FileChunk chunk = await CreateFileChunk(file.Name, uploadedBytes, firstChunk, stream, chunkSize, false);
-
-                await MakeApiChunkRangeRequest(chunk);
+                if(!await MakeApiChunkRangeRequest(chunk))
+                {
+                    return;
+                }
 
                 uploadedBytes += chunkSize;
-
                 firstChunk = false;
             }
 
             if (remainder > 0)
             {
                 FileChunk chunk = await CreateFileChunk(file.Name, uploadedBytes, firstChunk, stream, remainder, true);
-
-                await MakeApiChunkRangeRequest(chunk);
+                if (!await MakeApiChunkRangeRequest(chunk))
+                {
+                    return;
+                }
 
                 uploadedBytes += chunkSize;
             }
         }
+
+        Console.WriteLine("File uploaded successfully in chunks! Name: " + file.Name);
     }
 
     private async Task<FileChunk> CreateFileChunk(string fileName, long uploadedBytesProgress, bool isFirstChunk, Stream stream, long chunkSize, bool isLastChunk)
@@ -118,7 +122,7 @@
         return chunk;
     }
 
-    private async Task MakeApiChunkRangeRequest(FileChunk fileChunk)
+    private async Task<bool> MakeApiChunkRangeRequest(FileChunk fileChunk)
     {
         HttpResponseMessage response = await Http.PostAsJsonAsync("/files/addFileChunk", fileChunk);
 
@@ -126,8 +130,10 @@
         {
             AlertService.ShowAlert(await response.Content.ReadAsStringAsync());
             Console.WriteLine("File chunk upload fail! " + response.ReasonPhrase);
-            return;
+            return false;
         }
+
+        return true;
     }
 
     private async Task MakeApiRequestForSmallFiles(HttpContent content)
