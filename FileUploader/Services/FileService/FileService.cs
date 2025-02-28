@@ -1,5 +1,6 @@
 ﻿using FileUploader.Common.Communication;
 using FileUploader.Common.Types;
+using FileUploader.Db.Entities;
 
 namespace FileUploader.Services.FileService
 {
@@ -49,6 +50,45 @@ namespace FileUploader.Services.FileService
                 {
                     Uploaded = false,
                     FileName = name,
+                    Size = 0
+                };
+            }
+        }
+
+        public async Task<UploadResult> UploadChunkAsync(FileChunk fileChunk)
+        {
+            try
+            {
+                FileDescription resultFile = PrepareFile(fileChunk.FileName);
+                long size = fileChunk.Data.Length;
+
+                if (fileChunk.FirstChunk && DoesFileExist(resultFile.RelativeLocation))
+                {
+                    Delete(resultFile.RelativeLocation);    //TODO check if there is one in db and retunr false if there is   (MAYBE DO THE CHECK IN THE CONTROLLER AND RETURN THERE IN THE BEGINNING)
+                }
+
+                using (Stream stream = File.OpenWrite(resultFile.PhysicalPath))
+                {
+                    stream.Seek(fileChunk.Offset, SeekOrigin.Begin);
+                    stream.Write(fileChunk.Data, 0, fileChunk.Data.Length);
+                }
+
+                return new UploadResult()
+                {
+                    Uploaded = true,
+                    FileName = Path.GetFileNameWithoutExtension(fileChunk.FileName),
+                    RelativePath = resultFile.RelativeLocation,
+                    Extension = resultFile.Extension,
+                    Size = size
+                };
+            }
+            catch (Exception ex)
+            {
+                m_logger.LogWarning(ex, "Error while writing file chunk: {file_name}", fileChunk.FileName);
+                return new UploadResult()
+                {
+                    Uploaded = false,
+                    FileName = fileChunk.FileName,
                     Size = 0
                 };
             }

@@ -87,6 +87,33 @@ namespace FileUploader.Controllers
         }
 
         [AllowAnonymous]
+        [HttpPost("addFileChunk")]
+        public async Task<ActionResult> AddFileChunk([FromBody] FileChunk fileChunk)
+        {
+            try
+            {
+                if (fileChunk.FirstChunk)
+                {
+                    bool doesFileAlreadyExist = await m_context.FileAssets.AnyAsync(fa => fa.FullName == fileChunk.FileName);
+                    if (doesFileAlreadyExist)
+                    {
+                        return BadRequest(ErrorMessage.FileWithSameNameExists);
+                    }
+                }
+
+                await m_fileService.UploadChunkAsync(fileChunk);
+                Console.WriteLine("wrote chunk");
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                //TODO handle if one chunk fails to clean up the files
+                return BadRequest(ErrorMessage.ErrorDuringFileUpload);
+            }
+        }
+
+        [AllowAnonymous]
         [HttpDelete("delete")]
         public async Task<ActionResult> Delete([FromQuery] string fileName)
         {

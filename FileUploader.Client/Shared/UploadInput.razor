@@ -22,9 +22,9 @@
 
     private async Task OnInputFileChange(InputFileChangeEventArgs e)
     {
-        using var content = new MultipartFormDataContent();
+        using MultipartFormDataContent content = new MultipartFormDataContent();
 
-        foreach (var file in e.GetMultipleFiles(maxAllowedFiles))
+        foreach (IBrowserFile file in e.GetMultipleFiles(maxAllowedFiles))
         {
             if (file.Size == 0)
             {
@@ -32,32 +32,105 @@
                 return;
             }
 
-            StreamContent fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            // StreamContent fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
+            // fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
 
-            fileNames.Add(file.Name);
+            // fileNames.Add(file.Name);
 
-            content.Add(
-                content: fileContent,
-                name: "\"filesList\"",
-                fileName: file.Name);
+            // content.Add(
+            //     content: fileContent,
+            //     name: "\"filesList\"",
+            //     fileName: file.Name);
+
+
+            await UploadFileInChunks(file);
         }
 
-        HttpResponseMessage response = await Http.PostAsync("/files/addFiles", content);
+        // HttpResponseMessage response = await Http.PostAsync("/files/addFiles", content);
+
+        // if (!response.IsSuccessStatusCode)
+        // {
+        //     AlertService.ShowAlert(await response.Content.ReadAsStringAsync());
+        //     Console.WriteLine("File upload fail! " + response.ReasonPhrase);
+        //     return;
+        // }
+
+        // List<UploadResult> newUploadResults = await response.Content.ReadFromJsonAsync<List<UploadResult>>();
+
+        // if (newUploadResults != null)
+        // {
+        //     uploadResults = uploadResults.Concat(newUploadResults).ToList();
+        //     await OnNewFile.InvokeAsync();
+        // }
+    }
+
+    private async Task UploadFileWithStreamContent()
+    {
+
+    }
+
+    private async Task UploadFileInChunks(IBrowserFile file)
+    {
+        long TotalBytes = file.Size;
+        long chunkSize = 1000000;
+        long numChunks = TotalBytes / chunkSize;
+        long remainder = TotalBytes % chunkSize;
+
+        long uploadedBytes = 0;
+
+        string nameOnly = Path.GetFileNameWithoutExtension(file.Name);
+        string extension = Path.GetExtension(file.Name);
+
+        bool firstChunk = true;
+        using (Stream stream = file.OpenReadStream(long.MaxValue))
+        {
+            for (int i = 0; i < numChunks; i++)
+            {
+                FileChunk chunk = await CreateFileChunk(file.Name, uploadedBytes, firstChunk, stream, chunkSize);
+
+                await MakeApiChunkRangeRequest(chunk);
+
+                uploadedBytes += chunkSize;
+
+                firstChunk = false;
+            }
+
+            if (remainder > 0)
+            {
+                FileChunk chunk = await CreateFileChunk(file.Name, uploadedBytes, firstChunk, stream, remainder);
+
+                await MakeApiChunkRangeRequest(chunk);
+
+                uploadedBytes += chunkSize;
+            }
+        }
+    }
+
+    private async Task<FileChunk> CreateFileChunk(string fileName, long uploadedBytesProgress, bool isFirstChunk, Stream stream, long chunkSize)
+    {
+        byte[] buffer = new byte[chunkSize];
+        await stream.ReadAsync(buffer, 0, buffer.Length);
+
+        FileChunk chunk = new FileChunk
+            {
+                Data = buffer,
+                FileName = fileName,
+                Offset = uploadedBytesProgress,
+                FirstChunk = isFirstChunk
+            };
+
+        return chunk;
+    }
+
+    private async Task MakeApiChunkRangeRequest(FileChunk fileChunk)
+    {
+        HttpResponseMessage response = await Http.PostAsJsonAsync("/files/addFileChunk", fileChunk);
 
         if (!response.IsSuccessStatusCode)
         {
             AlertService.ShowAlert(await response.Content.ReadAsStringAsync());
-            Console.WriteLine("File upload fail! " + response.ReasonPhrase);
+            Console.WriteLine("File chunk upload fail! " + response.ReasonPhrase);
             return;
-        }
-
-        List<UploadResult> newUploadResults = await response.Content.ReadFromJsonAsync<List<UploadResult>>();
-
-        if (newUploadResults != null)
-        {
-            uploadResults = uploadResults.Concat(newUploadResults).ToList();
-            await OnNewFile.InvokeAsync();
         }
     }
 }
