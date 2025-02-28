@@ -14,6 +14,8 @@ namespace FileUploader.Common.Communication
 
         public byte[]? Data { get; set; }
 
-        public bool FirstChunk = false;
+        public bool FirstChunk { get; set; }
+
+        public bool LastChunk { get; set; }
     }
 }

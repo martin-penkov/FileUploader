@@ -1,5 +1,7 @@
+using FileUploader.Caching;
 using FileUploader.Common;
 using FileUploader.Common.Communication;
+using FileUploader.Common.Types;
 using FileUploader.Db;
 using FileUploader.Db.Entities;
 using FileUploader.Services.FileService;
@@ -18,15 +20,17 @@ namespace FileUploader.Controllers
         private readonly ILogger<FileController> m_logger;
         private readonly IFileService m_fileService;
         private readonly AppDbContext m_context;
+        private readonly IFileUploaderCache m_fileUploaderCache;
         IWebHostEnvironment m_hostEnvironment;
 
         #endregion
 
-        public FileController(ILogger<FileController> logger, IFileService fileService, AppDbContext context, IWebHostEnvironment hostEnvironment)
+        public FileController(ILogger<FileController> logger, IFileService fileService, AppDbContext context, IFileUploaderCache fileUploaderCache, IWebHostEnvironment hostEnvironment)
         {
             m_logger = logger;
             m_fileService = fileService;
             m_context = context;
+            m_fileUploaderCache = fileUploaderCache;
             m_hostEnvironment = hostEnvironment;
         }
 
@@ -52,6 +56,8 @@ namespace FileUploader.Controllers
 
             foreach (IFormFile fileData in filesList)
             {
+                m_logger.LogInformation("Uploading small file using StreamContent");
+
                 if(await m_context.FileAssets.AnyAsync(fa => fa.FullName == fileData.FileName))
                 {
                     return BadRequest(ErrorMessage.FileWithSameNameExists);
@@ -70,7 +76,8 @@ namespace FileUploader.Controllers
                     Location = result.RelativePath!,
                     Extension = result.Extension!,
                     UploadDate = DateTime.UtcNow,
-                    Size = result.Size
+                    Size = result.Size,
+                    Status = Status.Complete
                 };
 
                 m_context.FileAssets.Add(fileAsset);
@@ -85,19 +92,63 @@ namespace FileUploader.Controllers
         [HttpPost("addFileChunk")]
         public async Task<ActionResult> AddFileChunk([FromBody] FileChunk fileChunk)
         {
+            
             try
             {
                 if (fileChunk.FirstChunk)
                 {
+                    m_logger.LogInformation("Start Uploading file chunks for {FileName}", fileChunk.FileName);
+
                     bool doesFileAlreadyExist = await m_context.FileAssets.AnyAsync(fa => fa.FullName == fileChunk.FileName);
                     if (doesFileAlreadyExist)
                     {
                         return BadRequest(ErrorMessage.FileWithSameNameExists);
                     }
+
+                    FileDescription fileDescr = m_fileService.PrepareFileDescription(fileChunk.FileName);
+
+                    m_context.FileAssets.Add(new EFileAsset
+                    {
+                        FullName = fileChunk.FileName,
+                        Name = fileDescr.NameWithoutExtension,
+                        Location = fileDescr.RelativeLocation,
+                        Extension = fileDescr.Extension,
+                        UploadDate = DateTime.UtcNow,
+                        Size = 0,
+                        Status = Status.InProgress
+                    });
+
+                    await m_context.SaveChangesAsync();
+                    m_fileUploaderCache.AddOrUpdate(fileChunk.FileName, fileDescr);
                 }
 
-                await m_fileService.UploadChunkAsync(fileChunk);
-                Console.WriteLine("wrote chunk");
+                UploadResult uploadResult = await m_fileService.UploadChunkAsync(fileChunk);
+
+                if (!uploadResult.Uploaded)
+                {
+                    // update cache entry and remove db entry
+                    return BadRequest(ErrorMessage.ErrorDuringFileUpload);
+                }
+
+                if (fileChunk.LastChunk)
+                {
+                    EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == fileChunk.FileName);
+
+                    if (fileAsset == null)
+                    {
+                        // reset state
+                        return BadRequest(ErrorMessage.ErrorDuringFileUpload);
+                    }
+
+                    FileDescription fileDescr = m_fileUploaderCache.Get(fileChunk.FileName);
+
+                    fileAsset.Status = Status.Complete;
+                    fileAsset.Size = fileDescr.Size;
+
+                    await m_context.SaveChangesAsync();
+                }
+
+                m_logger.LogInformation("wrote chunk");
 
                 return Ok();
             }

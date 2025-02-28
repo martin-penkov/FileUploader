@@ -1,8 +1,8 @@
 ﻿namespace FileUploader.Common.Types
 {
-    public class FileDescription
+    public class FileUploadCacheEntry
     {
-        public string NameWithoutExtension { get; set; } 
+        public string NameWithoutExtension { get; set; }
 
         public string PhysicalPath { get; set; }
 

@@ -1,4 +1,5 @@
 ﻿using FileUploader.Common.Communication;
+using FileUploader.Common.Types;
 
 namespace FileUploader.Services.FileService
 {
@@ -11,5 +12,7 @@ namespace FileUploader.Services.FileService
         bool Delete(string relativePath);
 
         bool DoesFileExist(string location);
+
+        FileDescription PrepareFileDescription(string srcFileName);
     }
 }

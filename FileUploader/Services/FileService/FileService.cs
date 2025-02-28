@@ -1,6 +1,6 @@
-﻿using FileUploader.Common.Communication;
+﻿using FileUploader.Caching;
+using FileUploader.Common.Communication;
 using FileUploader.Common.Types;
-using FileUploader.Db.Entities;
 
 namespace FileUploader.Services.FileService
 {
@@ -8,11 +8,13 @@ namespace FileUploader.Services.FileService
     {
         IWebHostEnvironment m_hostEnvironment;
         ILogger m_logger;
+        private readonly IFileUploaderCache m_fileUploaderCache;
 
-        public FileService(ILoggerFactory loggerFactory, IWebHostEnvironment hostEnvironment)
+        public FileService(ILoggerFactory loggerFactory, IWebHostEnvironment hostEnvironment, IFileUploaderCache fileUploaderCache)
         {
             m_logger = loggerFactory.CreateLogger("fileService");
             m_hostEnvironment = hostEnvironment;
+            m_fileUploaderCache = fileUploaderCache;
         }
 
         public async Task<UploadResult> UploadAsync(string name, IFormFile file)
@@ -24,7 +26,7 @@ namespace FileUploader.Services.FileService
 
             try
             {
-                FileDescription resultFile = PrepareFile(name);
+                FileDescription resultFile = PrepareFileDescription(name);
                 long size = 0;
                 using (FileStream stream = new FileStream(resultFile.PhysicalPath, FileMode.Create))
                 {
@@ -59,7 +61,7 @@ namespace FileUploader.Services.FileService
         {
             try
             {
-                FileDescription resultFile = PrepareFile(fileChunk.FileName);
+                FileDescription resultFile = m_fileUploaderCache.Get(fileChunk.FileName);
                 long size = fileChunk.Data.Length;
 
                 if (fileChunk.FirstChunk && DoesFileExist(resultFile.RelativeLocation))
@@ -72,6 +74,9 @@ namespace FileUploader.Services.FileService
                     stream.Seek(fileChunk.Offset, SeekOrigin.Begin);
                     stream.Write(fileChunk.Data, 0, fileChunk.Data.Length);
                 }
+
+                resultFile.Size += size;
+                m_fileUploaderCache.AddOrUpdate(fileChunk.FileName, resultFile);
 
                 return new UploadResult()
                 {
@@ -113,10 +118,11 @@ namespace FileUploader.Services.FileService
             return File.Exists(physicalPath);
         }
 
-        FileDescription PrepareFile(string srcFileName)
+        public FileDescription PrepareFileDescription(string srcFileName)
         {
             string directoryName = "filesLibrary";
 
+            string nameWithoutExtension = Path.GetFileNameWithoutExtension(srcFileName);
             string fileExtension = Path.GetExtension(srcFileName);
             string randomizedFileName = Path.GetRandomFileName().Replace(".", "").Replace("\\", "");
 
@@ -131,9 +137,11 @@ namespace FileUploader.Services.FileService
 
             return new FileDescription
             {
+                NameWithoutExtension = nameWithoutExtension,
                 PhysicalPath = physicalPath,
                 RelativeLocation = relativeWebLocation,
-                Extension = fileExtension
+                Extension = fileExtension,
+                Size = 0
             };
         }
 

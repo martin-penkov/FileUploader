@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using FileUploader.Db;
 using FileUploader.Services.FileService;
 using FileUploader.Utility;
+using FileUploader.Caching;
 
 namespace FileUploader
 {
@@ -21,6 +22,7 @@ namespace FileUploader
             builder.Services.AddSwaggerGen();
 
             builder.Services.AddTransient<IFileService, FileService>();
+            builder.Services.AddSingleton<IFileUploaderCache, FileUploaderCache>();
 
             builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 1024 * 1024 * 1024);  // 1GB Limit
 
