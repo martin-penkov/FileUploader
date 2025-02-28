@@ -11,9 +11,9 @@ namespace FileUploader.Client.Services.FileUploadService
         private readonly HttpClient m_http;
         private readonly IAlertService m_alertService;
 
-        public FileUploadService(IHttpClientFactory httpClientFactory, IAlertService alertService)
+        public FileUploadService(HttpClient httpClient, IAlertService alertService)
         {
-            m_http = httpClientFactory.CreateClient();
+            m_http = httpClient;
             m_alertService = alertService;
         }
 
