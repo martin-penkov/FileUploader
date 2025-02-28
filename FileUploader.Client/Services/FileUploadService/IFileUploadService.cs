@@ -11,7 +11,7 @@ namespace FileUploader.Client.Services.FileUploadService
 
         Task<bool> MakeApiChunkRangeRequest(FileChunk fileChunk);
 
-        HttpContent CreateStreamContentForFiles(List<IBrowserFile> smallFiles, long maxFileSize);
+        void CreateStreamContentForFiles(List<IBrowserFile> smallFiles, long maxFileSize, MultipartFormDataContent content);
 
         Task<List<UploadResult>> MakeApiRequestForSmallFiles(HttpContent content);
     }

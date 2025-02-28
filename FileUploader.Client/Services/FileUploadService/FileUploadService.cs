@@ -89,22 +89,15 @@ namespace FileUploader.Client.Services.FileUploadService
             return true;
         }
 
-        public HttpContent CreateStreamContentForFiles(List<IBrowserFile> smallFiles, long maxFileSize)
+        public void CreateStreamContentForFiles(List<IBrowserFile> smallFiles, long maxFileSize, MultipartFormDataContent content)
         {
-            using MultipartFormDataContent content = new MultipartFormDataContent();
-
             foreach (IBrowserFile file in smallFiles)
             {
                 StreamContent fileContent = new StreamContent(file.OpenReadStream(maxFileSize));
                 fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
 
-                content.Add(
-                    content: fileContent,
-                    name: "\"filesList\"",
-                    fileName: file.Name);
+                content.Add(content: fileContent, name: "\"filesList\"", fileName: file.Name);
             }
-
-            return content;
         }
 
         public async Task<List<UploadResult>> MakeApiRequestForSmallFiles(HttpContent content)

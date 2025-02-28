@@ -40,8 +40,11 @@
 
         if (smallFiles.Count > 0)
         {
-            HttpContent content = FileUploadService.CreateStreamContentForFiles(smallFiles, maxFileSize);
-            await FileUploadService.MakeApiRequestForSmallFiles(content);
+            using (MultipartFormDataContent content = new MultipartFormDataContent())
+            {
+                FileUploadService.CreateStreamContentForFiles(smallFiles, maxFileSize, content);
+                await FileUploadService.MakeApiRequestForSmallFiles(content);
+            }
         }
 
         foreach (IBrowserFile file in largeFiles)
