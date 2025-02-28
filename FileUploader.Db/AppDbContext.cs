@@ -1,10 +1,9 @@
 ﻿using FileUploader.Db.Entities;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace FileUploader.Db
 {
-    public class AppDbContext : IdentityDbContext<EUser>
+    public class AppDbContext : DbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {

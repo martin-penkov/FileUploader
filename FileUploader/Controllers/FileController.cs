@@ -4,13 +4,11 @@ using FileUploader.Db;
 using FileUploader.Db.Entities;
 using FileUploader.Services.FileService;
 using FileUploader.Utility;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace FileUploader.Controllers
 {
-    [Authorize]
     [ApiController]
     [Route("files")]
     public class FileController : ControllerBase
@@ -32,7 +30,6 @@ namespace FileUploader.Controllers
             m_hostEnvironment = hostEnvironment;
         }
 
-        [AllowAnonymous]
         [HttpGet("publicFiles")]
         public async Task<ActionResult<IList<UploadResult>>> GetPublicFiles()
         {
@@ -47,7 +44,6 @@ namespace FileUploader.Controllers
             return Ok(uploadResults);
         }
 
-        [AllowAnonymous]
         [RequestFormLimits(ValueLengthLimit = int.MaxValue, MultipartBodyLengthLimit = int.MaxValue)]
         [HttpPost("addFiles")]
         public async Task<ActionResult<IList<UploadResult>>> AddFiles([FromForm] List<IFormFile> filesList)
@@ -86,7 +82,6 @@ namespace FileUploader.Controllers
             return Ok(results);
         }
 
-        [AllowAnonymous]
         [HttpPost("addFileChunk")]
         public async Task<ActionResult> AddFileChunk([FromBody] FileChunk fileChunk)
         {
@@ -113,7 +108,6 @@ namespace FileUploader.Controllers
             }
         }
 
-        [AllowAnonymous]
         [HttpDelete("delete")]
         public async Task<ActionResult> Delete([FromQuery] string fileName)
         {
@@ -139,7 +133,6 @@ namespace FileUploader.Controllers
             return Ok();
         }
 
-        [AllowAnonymous]
         [HttpGet("download")]
         public async Task<ActionResult> DownloadFile([FromQuery] string fileName)
         {

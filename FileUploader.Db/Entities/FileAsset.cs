@@ -1,4 +1,6 @@
-﻿namespace FileUploader.Db.Entities
+﻿using FileUploader.Common.Types;
+
+namespace FileUploader.Db.Entities
 {
     public class EFileAsset
     {
@@ -15,5 +17,7 @@
         public long Size { get; set; }
 
         public DateTime UploadDate { get; set; }
+
+        public Status Status { get; set; }
     }
 }
