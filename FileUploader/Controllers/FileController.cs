@@ -37,7 +37,7 @@ namespace FileUploader.Controllers
         [HttpGet("publicFiles")]
         public async Task<ActionResult<IList<UploadResult>>> GetPublicFiles()
         {
-            List<EFileAsset> fileAssets = await m_context.FileAssets.ToListAsync();
+            List<EFileAsset> fileAssets = await m_context.FileAssets.Where(fa => fa.Status == Status.Complete).ToListAsync();
             List<UploadResult> uploadResults = new List<UploadResult>();
 
             foreach (EFileAsset asset in fileAssets)
