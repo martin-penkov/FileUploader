@@ -148,7 +148,7 @@ namespace FileUploader.Tests
                     HttpResponseMessage response = await _client.PostAsJsonAsync("/files/addFileChunk", chunk);
                     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-                    uploadedBytes += chunkSize;
+                    uploadedBytes += remainder;
                 }
 
                 EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == samplefileName);
@@ -218,7 +218,7 @@ namespace FileUploader.Tests
                     HttpResponseMessage response = await _client.PostAsJsonAsync("/files/addFileChunk", chunk);
                     Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-                    uploadedBytes += chunkSize;
+                    uploadedBytes += remainder;
                 }
 
                 EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == samplefileName);
@@ -304,7 +304,7 @@ namespace FileUploader.Tests
             HttpResponseMessage getAllResponse = await _client.GetAsync("/files/publicFiles");
             List<UploadResult>? initialFiles = await getAllResponse.Content.ReadFromJsonAsync<List<UploadResult>>();
 
-            const long bigFileSize = 3000000; // 1 MB
+            const long bigFileSize = 3000000; // 3 MB
             string bigFilePath = null;
             long chunkSize = 1000000; // 1MB
 

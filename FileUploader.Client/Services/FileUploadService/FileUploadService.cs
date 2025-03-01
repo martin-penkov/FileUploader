@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Components.Forms;
 using System.Net.Http.Json;
 using FileUploader.Client.Services.AlertService;
 using System.Net.Http.Headers;
+using System;
+using System.Diagnostics;
 
 namespace FileUploader.Client.Services.FileUploadService
 {
@@ -17,13 +19,14 @@ namespace FileUploader.Client.Services.FileUploadService
             m_alertService = alertService;
         }
 
-        public async Task UploadFileInChunks(IBrowserFile file, long chunkSize = 1000000)
+        public async Task UploadFileInChunks(IBrowserFile file, Action<int> onProgress = null, long chunkSize = 1000000)
         {
             long TotalBytes = file.Size;
             long numChunks = TotalBytes / chunkSize;
             long remainder = TotalBytes % chunkSize;
 
             long uploadedBytes = 0;
+            int progress = 0;
 
             string nameOnly = Path.GetFileNameWithoutExtension(file.Name);
             string extension = Path.GetExtension(file.Name);
@@ -40,6 +43,10 @@ namespace FileUploader.Client.Services.FileUploadService
                     }
 
                     uploadedBytes += chunkSize;
+
+                    progress = (int)(uploadedBytes * 100 / TotalBytes);
+                    onProgress?.Invoke(progress);
+
                     firstChunk = false;
                 }
 
@@ -51,7 +58,10 @@ namespace FileUploader.Client.Services.FileUploadService
                         return;
                     }
 
-                    uploadedBytes += chunkSize;
+                    uploadedBytes += remainder;
+
+                    progress = (int)(uploadedBytes * 100 / TotalBytes);
+                    onProgress?.Invoke(progress);
                 }
             }
 

@@ -5,7 +5,7 @@ namespace FileUploader.Client.Services.FileUploadService
 {
     public interface IFileUploadService
     {
-        Task UploadFileInChunks(IBrowserFile file, long chunkSize = 1000000);
+        Task UploadFileInChunks(IBrowserFile file, Action<int> onProgress, long chunkSize = 1000000);
 
         Task<FileChunk> CreateFileChunk(string fileName, long uploadedBytesProgress, bool isFirstChunk, Stream stream, long chunkSize, bool isLastChunk);
 

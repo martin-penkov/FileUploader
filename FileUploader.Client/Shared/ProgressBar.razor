@@ -1,0 +1,23 @@
+﻿@if (IsShown)
+{
+    <div class="progress-container">
+        <div class="progress-bar"
+             style="width: @(Value)%;
+                background-color: @(Color);
+                transition: width 0.3s ease;">
+            <span class="progress-label">@Value%</span>
+        </div>
+    </div>
+}
+
+
+@code {
+    [Parameter]
+    public int Value { get; set; } = 0;
+
+    [Parameter]
+    public string Color { get; set; } = "#006aff";
+
+    [Parameter]
+    public bool IsShown { get; set; } = false;
+}

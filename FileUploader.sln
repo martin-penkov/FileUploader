@@ -11,7 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileUploader.Client", "File
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileUploader.Common", "FileUploader.Common\FileUploader.Common.csproj", "{14A4825F-A9DA-41B4-80DB-AD49BBF6347A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FileUploader.Tests", "FileUploader.Tests\FileUploader.Tests.csproj", "{277D8676-87D0-4B82-BC42-EC9F9DAF9E2B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FileUploader.Tests", "FileUploader.Tests\FileUploader.Tests.csproj", "{277D8676-87D0-4B82-BC42-EC9F9DAF9E2B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

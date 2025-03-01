@@ -8,10 +8,15 @@
 
 <PageTitle>Upload Files</PageTitle>
 
-<label for="inputFile" class="btn btn-secondary me-5 input-btn">
-    <InputFile id="inputFile" OnChange="@OnInputFileChange" multiple class="d-none" />
-    Upload Files
-</label>
+<div class="d-flex align-items-center w-100">
+    <label for="inputFile" class="btn btn-secondary me-5 input-btn flex-shrink-0">
+        <InputFile id="inputFile" OnChange="@OnInputFileChange" multiple class="d-none" />
+        Upload Files
+    </label>
+
+    <ProgressBar Value="@progressPercentage" Color="#28a745" IsShown="@(progressPercentage != 0)" />
+</div>
+
 
 @code {
     [Parameter]
@@ -20,6 +25,8 @@
     private int maxAllowedFiles = int.MaxValue;
     private long maxFileSize = long.MaxValue;
     private List<UploadResult> uploadResults = new List<UploadResult>();
+
+    private int progressPercentage = 0;
 
     long chunkSize = 1000000;
 
@@ -49,7 +56,11 @@
 
         foreach (IBrowserFile file in largeFiles)
         {
-            await FileUploadService.UploadFileInChunks(file, chunkSize);
+            await FileUploadService.UploadFileInChunks(file, progress =>
+            {
+                progressPercentage = progress;
+                InvokeAsync(StateHasChanged);
+            }, chunkSize);
         }
 
         await OnNewFile.InvokeAsync();
