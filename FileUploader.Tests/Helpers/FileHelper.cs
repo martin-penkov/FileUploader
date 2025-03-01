@@ -1,4 +1,6 @@
-﻿using System.Security.Cryptography;
+﻿using FileUploader.Common.Communication;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace FileUploader.Tests.Helpers
 {
@@ -31,6 +33,45 @@ namespace FileUploader.Tests.Helpers
 
             return tempFilePath;
         }
-    }
 
+        public static FileChunk CreateFileChunk(string fileName, long uploadedBytesProgress, bool isFirstChunk, byte[] buffer, long chunkSize, bool isLastChunk)
+        {
+            FileChunk chunk = new FileChunk
+            {
+                Data = buffer,
+                FileName = fileName,
+                Offset = uploadedBytesProgress,
+                FirstChunk = isFirstChunk,
+                LastChunk = isLastChunk
+            };
+
+            return chunk;
+        }
+
+        public static string GetFileHash(byte[] bytes)
+        {
+            SHA1Managed hash = new SHA1Managed();
+            byte[] hashedBytes = hash.ComputeHash(bytes);
+            return ConvertBytesToHex(hashedBytes);
+        }
+
+        public static string ConvertBytesToHex(byte[] bytes)
+        {
+            StringBuilder sb = new StringBuilder();
+
+            for (var i = 0; i < bytes.Length; i++)
+            {
+                sb.Append(bytes[i].ToString("x"));
+            }
+            return sb.ToString();
+        }
+
+        public static void CleanFile(string filePath)
+        {
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            {
+                File.Delete(filePath);
+            }
+        }
+    }
 }
