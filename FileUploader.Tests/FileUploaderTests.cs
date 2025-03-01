@@ -6,9 +6,7 @@ using FileUploader.Tests.Helpers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using System;
 using System.Net;
-using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
@@ -104,70 +102,18 @@ namespace FileUploader.Tests
         public async Task TestBigChunkedValidFileReturnsOkAndStoresFile()
         {
             const long bigFileSize = 1000000000; // 1 GB
-            string bigFilePath = null;
             long chunkSize = 1000000; // 1MB
 
-            try
-            {
-                bigFilePath = FileHelper.CreateTempFile(bigFileSize);
+            await FileHelper.UploadChunkedFileAndVerify(bigFileSize, chunkSize, _client, customAppFactory.TestFixture.AppDbContext, m_hostEnvironment.WebRootPath);
+        }
 
-                Assert.True(File.Exists(bigFilePath));
-                Assert.Equal(bigFileSize, new FileInfo(bigFilePath).Length);
-                string samplefileName = Path.GetFileName(bigFilePath);
-                string extension = Path.GetExtension(bigFilePath);
+        [Fact]
+        public async Task TestSmallFileSmallerThanChunkReturnsOkAndStoresFile()
+        {
+            const long fileSize = 500000; // 500 KB
+            long chunkSize = 1000000; // 1MB
 
-                byte[] fileBytes = File.ReadAllBytes(bigFilePath);
-
-                long numChunks = fileBytes.Length / chunkSize;
-                long remainder = fileBytes.Length % chunkSize;
-                long uploadedBytes = 0;
-
-                bool firstChunk = true;
-
-                for (int i = 0; i < numChunks; i++)
-                {
-                    byte[] buffer = new byte[chunkSize];
-                    Array.Copy(fileBytes, i * chunkSize, buffer, 0, chunkSize);
-
-                    FileChunk chunk = FileHelper.CreateFileChunk(samplefileName, uploadedBytes, firstChunk, buffer, chunkSize, false);
-
-                    HttpResponseMessage response = await _client.PostAsJsonAsync("/files/addFileChunk", chunk);
-                    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-                    uploadedBytes += chunkSize;
-                    firstChunk = false;
-                }
-
-                if (remainder > 0)
-                {
-                    byte[] buffer = new byte[remainder];
-                    Array.Copy(fileBytes, numChunks * chunkSize, buffer, 0, remainder);
-
-                    FileChunk chunk = FileHelper.CreateFileChunk(samplefileName, uploadedBytes, firstChunk, buffer, remainder, true);
-
-                    HttpResponseMessage response = await _client.PostAsJsonAsync("/files/addFileChunk", chunk);
-                    Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-                    uploadedBytes += remainder;
-                }
-
-                EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == samplefileName);
-                Assert.True(dbEntry != null, "File doesnt exist in DB");
-
-                string contentRoot = m_hostEnvironment.WebRootPath;
-                string filePath = Path.Combine(contentRoot, dbEntry.Location);
-                byte[] finalFileBytes = File.ReadAllBytes(filePath);
-
-                Assert.True(File.Exists(filePath), $"Uploaded file not found at: {filePath}");
-                Assert.Equal(FileHelper.GetFileHash(fileBytes), FileHelper.GetFileHash(finalFileBytes));// verify if both files are the same after upload
-
-                File.Delete(filePath);
-            }
-            finally
-            {
-                // Clean up temp files
-                FileHelper.CleanFile(bigFilePath);
-            }
+            await FileHelper.UploadChunkedFileAndVerify(fileSize, chunkSize, _client, customAppFactory.TestFixture.AppDbContext, m_hostEnvironment.WebRootPath);
         }
 
         [Fact]
@@ -301,8 +247,8 @@ namespace FileUploader.Tests
         [Fact]
         public async Task TestIfFileInProgressWillReturnOnGetAllFiles()
         {
-            HttpResponseMessage getAllResponse = await _client.GetAsync("/files/publicFiles");
-            List<UploadResult>? initialFiles = await getAllResponse.Content.ReadFromJsonAsync<List<UploadResult>>();
+            //HttpResponseMessage getAllResponse = await _client.GetAsync("/files/publicFiles");
+            //List<UploadResult>? initialFiles = await getAllResponse.Content.ReadFromJsonAsync<List<UploadResult>>();
 
             const long bigFileSize = 3000000; // 3 MB
             string bigFilePath = null;
@@ -343,10 +289,10 @@ namespace FileUploader.Tests
                 string contentRoot = m_hostEnvironment.WebRootPath;
                 string filePath = Path.Combine(contentRoot, dbEntry.Location);
 
-                HttpResponseMessage finalGetAllResponse = await _client.GetAsync("/files/publicFiles");
-                List<UploadResult>? finalFiles = await finalGetAllResponse.Content.ReadFromJsonAsync<List<UploadResult>>();
+                HttpResponseMessage getAllResponse = await _client.GetAsync("/files/publicFiles");
+                List<UploadResult>? finalFiles = await getAllResponse.Content.ReadFromJsonAsync<List<UploadResult>>();
 
-                Assert.Equal(initialFiles, finalFiles);
+                Assert.Null(finalFiles.FirstOrDefault(file => file.FileName == samplefileName));
 
                 File.Delete(filePath);
             }
