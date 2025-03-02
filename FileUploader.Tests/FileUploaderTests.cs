@@ -27,7 +27,7 @@ namespace FileUploader.Tests
         }
 
         [Fact]
-        public async Task CanAddFilesToDb()
+        public async Task CanAddFilesToDb()    // For testing the DB read/write
         {
             customAppFactory.TestFixture.AppDbContext.FileAssets.Add(new Db.Entities.EFileAsset
             {
