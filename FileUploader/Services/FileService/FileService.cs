@@ -104,7 +104,9 @@ namespace FileUploader.Services.FileService
 
         public async Task<bool> CreateDbEntryOnFirstChunkAsync(string fileName)
         {
-            bool doesFileAlreadyExist = await m_context.FileAssets.AnyAsync(fa => fa.FullName == fileName);
+            string nameOnly = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+            bool doesFileAlreadyExist = await m_context.FileAssets.AnyAsync(e => e.Name == nameOnly && e.Extension == extension);
             if (doesFileAlreadyExist)
             {
                 return false;
@@ -114,7 +116,6 @@ namespace FileUploader.Services.FileService
 
             m_context.FileAssets.Add(new EFileAsset
             {
-                FullName = fileName,
                 Name = fileDescr.NameWithoutExtension,
                 Location = fileDescr.RelativeLocation,
                 Extension = fileDescr.Extension,
@@ -133,7 +134,9 @@ namespace FileUploader.Services.FileService
         {
             m_fileUploaderCache.ClearEntry(fileName);
 
-            EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == fileName);
+            string nameOnly = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+            EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(e => e.Name == nameOnly && e.Extension == extension);
             m_context.FileAssets.Remove(fileAsset!);
             await m_context.SaveChangesAsync();
 
@@ -142,7 +145,9 @@ namespace FileUploader.Services.FileService
 
         public async Task<bool> FinalizeChunkedFileUploadAsync(string fileName)
         {
-            EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == fileName);
+            string nameOnly = Path.GetFileNameWithoutExtension(fileName);
+            string extension = Path.GetExtension(fileName);
+            EFileAsset? fileAsset = await m_context.FileAssets.FirstOrDefaultAsync(e => e.Name == nameOnly && e.Extension == extension);
 
             if (fileAsset == null)
             {

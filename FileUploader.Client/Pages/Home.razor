@@ -36,7 +36,7 @@
                     </div>
                     <div class="button-container">
                         <button class="delete-btn" @onclick="() => ShowDeleteModal(file.FileName)">Delete</button>
-                        <button class="download-btn" @onclick="() => DownloadFile(file.FileName)">Download</button>
+                        <button class="download-btn" @onclick="() => DownloadFile(file.FileName, file.Extension)">Download</button>
                     </div>
                 </li>
             }
@@ -71,9 +71,9 @@
         files = await Http.GetFromJsonAsync<List<UploadResult>>("/files/publicFiles");
     }
 
-    private async Task DownloadFile(string fileName)
+    private async Task DownloadFile(string fileName, string extension)
     {
-        string apiUrl = $"/files/download?fileName={fileName}";
+        string apiUrl = $"/files/download?fileName={fileName}&extension={extension}";
 
         HttpResponseMessage response = await Http.GetAsync(apiUrl);
 

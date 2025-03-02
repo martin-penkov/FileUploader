@@ -100,7 +100,8 @@ namespace FileUploader.Tests.Helpers
                     uploadedBytes += remainder;
                 }
 
-                EFileAsset? dbEntry = await dbContext.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == samplefileName);
+                string nameOnly = Path.GetFileNameWithoutExtension(samplefileName);
+                EFileAsset? dbEntry = await dbContext.FileAssets.FirstOrDefaultAsync(e => e.Name == nameOnly && e.Extension == extension);
                 Assert.True(dbEntry != null, "File doesnt exist in DB");
 
                 string filePath = Path.Combine(webRootPath, dbEntry.Location);

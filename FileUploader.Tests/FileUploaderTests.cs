@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Xml.Linq;
 
 namespace FileUploader.Tests
 {
@@ -31,7 +32,6 @@ namespace FileUploader.Tests
         {
             customAppFactory.TestFixture.AppDbContext.FileAssets.Add(new Db.Entities.EFileAsset
             {
-                FullName = "test",
                 Name = "test",
                 Location = "test",
                 Extension = "test",
@@ -81,7 +81,10 @@ namespace FileUploader.Tests
                 Assert.True(uploadResults.Count > 0, "The upload result list is empty.");
                 UploadResult result = uploadResults[0];
 
-                EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == samplefileName);
+                string nameOnly = Path.GetFileNameWithoutExtension(smallFilePath);
+                string extension = Path.GetExtension(smallFilePath);
+                EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(e => e.Name == nameOnly && e.Extension == extension);
+
                 Assert.True(dbEntry != null, "File doesnt exist in DB");
 
                 string contentRoot = m_hostEnvironment.WebRootPath;
@@ -167,7 +170,8 @@ namespace FileUploader.Tests
                     uploadedBytes += remainder;
                 }
 
-                EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == samplefileName);
+                string nameOnly = Path.GetFileNameWithoutExtension(bigFilePath);
+                EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(e => e.Name == nameOnly && e.Extension == extension);
                 Assert.True(dbEntry != null, "File doesnt exist in DB");
 
                 string contentRoot = m_hostEnvironment.WebRootPath;
@@ -222,7 +226,9 @@ namespace FileUploader.Tests
                 Assert.True(uploadResults.Count > 0, "The upload result list is empty.");
                 UploadResult result = uploadResults[0];
 
-                EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == samplefileName);
+                string nameOnly = Path.GetFileNameWithoutExtension(smallFilePath);
+                string extension = Path.GetExtension(smallFilePath);
+                EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(e => e.Name == nameOnly && e.Extension == extension);
                 Assert.True(dbEntry != null, "File doesnt exist in DB");
 
                 string contentRoot = m_hostEnvironment.WebRootPath;
@@ -247,9 +253,6 @@ namespace FileUploader.Tests
         [Fact]
         public async Task TestIfFileInProgressWillReturnOnGetAllFiles()
         {
-            //HttpResponseMessage getAllResponse = await _client.GetAsync("/files/publicFiles");
-            //List<UploadResult>? initialFiles = await getAllResponse.Content.ReadFromJsonAsync<List<UploadResult>>();
-
             const long bigFileSize = 3000000; // 3 MB
             string bigFilePath = null;
             long chunkSize = 1000000; // 1MB
@@ -282,7 +285,8 @@ namespace FileUploader.Tests
                 uploadedBytes += chunkSize;
                 firstChunk = false;
 
-                EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(fa => fa.FullName == samplefileName);
+                string nameOnly = Path.GetFileNameWithoutExtension(bigFilePath);
+                EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(e => e.Name == nameOnly && e.Extension == extension);
                 Assert.True(dbEntry != null, "File doesnt exist in DB");
                 Assert.True(dbEntry.Status == Status.InProgress, "File should be in progress!");
 

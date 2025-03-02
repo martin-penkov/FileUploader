@@ -16,8 +16,8 @@ namespace FileUploader.Db
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<EFileAsset>()
-                .HasIndex(f => new { f.FullName })
-                .IsUnique(); // Enforces unique name + extension
+            .HasIndex(f => new { f.Name, f.Extension })
+            .IsUnique();
 
             modelBuilder.HasDefaultSchema("public");
         }

@@ -58,7 +58,9 @@ namespace FileUploader.Controllers
             {
                 m_logger.LogInformation("Uploading small file using StreamContent");
 
-                if(await m_context.FileAssets.AnyAsync(fa => fa.FullName == fileData.FileName))
+                string nameOnly = Path.GetFileNameWithoutExtension(fileData.FileName);
+                string extension = Path.GetExtension(fileData.FileName);
+                if (await m_context.FileAssets.AnyAsync(e => e.Name == nameOnly && e.Extension == extension))
                 {
                     return BadRequest(ErrorMessage.FileWithSameNameExists);
                 }
@@ -71,7 +73,6 @@ namespace FileUploader.Controllers
 
                 EFileAsset fileAsset = new EFileAsset
                 {
-                    FullName = result.FileName + result.Extension,
                     Name = result.FileName,
                     Location = result.RelativePath!,
                     Extension = result.Extension!,
@@ -162,9 +163,9 @@ namespace FileUploader.Controllers
         }
 
         [HttpGet("download")]
-        public async Task<ActionResult> DownloadFile([FromQuery] string fileName)
+        public async Task<ActionResult> DownloadFile([FromQuery] string fileName, string extension)
         {
-            EFileAsset? fileAsset = m_context.FileAssets.FirstOrDefault(fa => fa.Name == fileName);
+            EFileAsset? fileAsset = m_context.FileAssets.FirstOrDefault(e => e.Name == fileName && e.Extension == extension);
 
             if (fileAsset == null)
             {
@@ -182,7 +183,7 @@ namespace FileUploader.Controllers
             string contentType = "application/octet-stream";
 
             byte[] fileBytes = System.IO.File.ReadAllBytes(absolutePath);
-            return File(fileBytes, contentType, fileAsset.FullName);
+            return File(fileBytes, contentType, $"{fileAsset.Name}{fileAsset.Extension}");
         }
     }
 }
