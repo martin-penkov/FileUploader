@@ -5,11 +5,11 @@ using FileUploader.Db.Entities;
 using FileUploader.Tests.Helpers;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Newtonsoft.Json;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Xml.Linq;
 
 namespace FileUploader.Tests
 {
@@ -34,7 +34,7 @@ namespace FileUploader.Tests
             {
                 Name = "test",
                 Location = "test",
-                Extension = "test",
+                Extension = ".png",
                 UploadDate = DateTime.UtcNow,
                 Size = 0,
                 Status = Status.Complete
@@ -48,6 +48,117 @@ namespace FileUploader.Tests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             List<EFileAsset>? files = await response.Content.ReadFromJsonAsync<List<EFileAsset>>();
             Assert.NotEmpty(files);
+        }
+
+        [Fact]
+        public async Task TestDbIfNamesWithSameFullNameButDifferentNameAndExtensionWhenCheckedSeparatelyIsHandled()
+        {
+            string firstValidName = "test.prod";
+            string firstValidExtension = ".txt";
+
+            string secondValidName = "test";
+            string secondValidExtension = ".prod.txt";
+
+            try
+            {
+                customAppFactory.TestFixture.AppDbContext.FileAssets.Add(new Db.Entities.EFileAsset
+                {
+                    Name = firstValidName,
+                    Location = "random",
+                    Extension = firstValidExtension,
+                    UploadDate = DateTime.UtcNow,
+                    Size = 0,
+                    Status = Status.Complete
+                });
+
+                await customAppFactory.TestFixture.AppDbContext.SaveChangesAsync();
+
+                customAppFactory.TestFixture.AppDbContext.FileAssets.Add(new Db.Entities.EFileAsset
+                {
+                    Name = secondValidName,
+                    Location = "random",
+                    Extension = secondValidExtension,
+                    UploadDate = DateTime.UtcNow,
+                    Size = 0,
+                    Status = Status.Complete
+                });
+
+                await customAppFactory.TestFixture.AppDbContext.SaveChangesAsync();
+            }
+            finally
+            {
+                // Clean up the test data
+                List<EFileAsset> testFiles = await customAppFactory.TestFixture.AppDbContext.FileAssets
+                    .Where(f => (f.Name == firstValidName && f.Extension == firstValidExtension) ||
+                                (f.Name == secondValidName && f.Extension == secondValidExtension))
+                    .ToListAsync();
+
+                if (testFiles.Count > 0)
+                {
+                    customAppFactory.TestFixture.AppDbContext.FileAssets.RemoveRange(testFiles);
+                    await customAppFactory.TestFixture.AppDbContext.SaveChangesAsync();
+                }
+            }
+        }
+
+        [Fact]
+        public async Task TestDbIfEntryWithSameNameAndSameExtensionPairAreRejected()
+        {
+            string validName = "randomName";
+            string validExtension = ".txt";
+
+            try
+            {
+                customAppFactory.TestFixture.AppDbContext.FileAssets.Add(new EFileAsset
+                {
+                    Name = validName,
+                    Location = "random",
+                    Extension = validExtension,
+                    UploadDate = DateTime.UtcNow,
+                    Size = 0,
+                    Status = Status.Complete
+                });
+
+                customAppFactory.TestFixture.AppDbContext.FileAssets.Add(new EFileAsset
+                {
+                    Name = validName,
+                    Location = "random",
+                    Extension = validExtension,
+                    UploadDate = DateTime.UtcNow,
+                    Size = 0,
+                    Status = Status.Complete
+                });
+
+                await Assert.ThrowsAsync<DbUpdateException>(async () =>
+                {
+                    await customAppFactory.TestFixture.AppDbContext.SaveChangesAsync();
+                });
+            }
+            finally
+            {
+                customAppFactory.TestFixture.AppDbContext.ChangeTracker.Clear();
+
+                List<EntityEntry<EFileAsset>> trackedEntities = customAppFactory.TestFixture.AppDbContext.ChangeTracker
+                    .Entries<EFileAsset>()
+                    .Where(e => e.Entity.Name == validName && e.Entity.Extension == validExtension)
+                    .ToList();
+
+                foreach (var entry in trackedEntities)
+                {
+                    entry.State = EntityState.Detached;
+                }
+
+                // This clean up shouldnt usually happen, only if the db doesnt work as expected...
+                List<EFileAsset> testFiles = await customAppFactory.TestFixture.AppDbContext.FileAssets
+                    .Where(f => f.Name == validName && f.Extension == validExtension)
+                    .ToListAsync();
+
+                if (testFiles.Any())
+                {
+                    customAppFactory.TestFixture.AppDbContext.FileAssets.RemoveRange(testFiles);
+                    await customAppFactory.TestFixture.AppDbContext.SaveChangesAsync();
+                }
+            }
         }
 
         [Fact]
@@ -268,22 +379,14 @@ namespace FileUploader.Tests
 
                 byte[] fileBytes = File.ReadAllBytes(bigFilePath);
 
-                long numChunks = fileBytes.Length / chunkSize;
-                long remainder = fileBytes.Length % chunkSize;
-                long uploadedBytes = 0;
-
-                bool firstChunk = true;
                 // send only one chunk
                 byte[] buffer = new byte[chunkSize];
                 Array.Copy(fileBytes, 0, buffer, 0, chunkSize);
 
-                FileChunk chunk = FileHelper.CreateFileChunk(samplefileName, uploadedBytes, firstChunk, buffer, chunkSize, false);
+                FileChunk chunk = FileHelper.CreateFileChunk(samplefileName, 0, true, buffer, chunkSize, false);
 
                 HttpResponseMessage response = await _client.PostAsJsonAsync("/files/addFileChunk", chunk);
                 Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-                uploadedBytes += chunkSize;
-                firstChunk = false;
 
                 string nameOnly = Path.GetFileNameWithoutExtension(bigFilePath);
                 EFileAsset? dbEntry = await customAppFactory.TestFixture.AppDbContext.FileAssets.FirstOrDefaultAsync(e => e.Name == nameOnly && e.Extension == extension);
